@@ -11,7 +11,7 @@
         <Authors>FeatBit</Authors>
         <Owners>FeatBit</Owners>
         <Company>FeatBit</Company>
-        <Copyright>Copyright 2023 FeatBit</Copyright>
+        <Copyright>Copyright 2026 FeatBit</Copyright>
         <IncludeSymbols>true</IncludeSymbols>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
         <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
