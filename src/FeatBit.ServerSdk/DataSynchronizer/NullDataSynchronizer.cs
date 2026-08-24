@@ -11,6 +11,11 @@ internal sealed class NullDataSynchronizer : IDataSynchronizer
     public bool Initialized => true;
     public DataSynchronizerStatus Status => _statusManager.Status;
     public event Action<DataSynchronizerStatus> StatusChanged;
+    public event EventHandler<DataChangeEventArgs> DataChanged
+    {
+        add { }
+        remove { }
+    }
 
     public NullDataSynchronizer()
     {

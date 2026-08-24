@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using FeatBit.Sdk.Server.Concurrent;
+using FeatBit.Sdk.Server.Model;
 using FeatBit.Sdk.Server.Options;
 using FeatBit.Sdk.Server.Store;
 using FeatBit.Sdk.Server.Transport;
@@ -21,6 +22,7 @@ namespace FeatBit.Sdk.Server.DataSynchronizer
         public bool Initialized => _initialized.Value;
         public DataSynchronizerStatus Status => _statusManager.Status;
         public event Action<DataSynchronizerStatus> StatusChanged;
+        public event EventHandler<DataChangeEventArgs> DataChanged;
 
         private readonly IMemoryStore _store;
         private readonly FbOptions _options;
@@ -170,17 +172,40 @@ namespace FeatBit.Sdk.Server.DataSynchronizer
                 var dataSet = DataSet.FromJsonElement(root.GetProperty("data"));
                 _logger.LogDebug("Received {Type} data-sync message", dataSet.EventType);
                 var objects = dataSet.GetStorableObjects();
+
                 // populate data store
                 if (dataSet.EventType == DataSet.Full)
                 {
                     _store.Populate(objects);
+
+                    // raise data changed event
+                    DataChanged?.Invoke(
+                        this,
+                        new DataChangeEventArgs(DataChangeKind.Full, true, true)
+                    );
                 }
                 // upsert objects
                 else if (dataSet.EventType == DataSet.Patch)
                 {
+                    var featureFlagsChanged = false;
+                    var segmentsChanged = false;
+
                     foreach (var storableObject in objects)
                     {
-                        _store.Upsert(storableObject);
+                        if (_store.Upsert(storableObject))
+                        {
+                            featureFlagsChanged |= storableObject is FeatureFlag;
+                            segmentsChanged |= storableObject is Segment;
+                        }
+                    }
+
+                    // raise data changed event
+                    if (featureFlagsChanged || segmentsChanged)
+                    {
+                        DataChanged?.Invoke(
+                            this,
+                            new DataChangeEventArgs(DataChangeKind.Patch, featureFlagsChanged, segmentsChanged)
+                        );
                     }
                 }
 

@@ -31,6 +31,9 @@ namespace FeatBit.Sdk.Server
         public bool Initialized => _dataSynchronizer.Initialized;
 
         /// <inheritdoc/>
+        public event EventHandler<DataChangeEventArgs> DataChanged;
+
+        /// <inheritdoc/>
         public FbClientStatus Status
         {
             get
@@ -139,6 +142,8 @@ namespace FeatBit.Sdk.Server
                 _dataSynchronizer = new WebSocketDataSynchronizer(options, _store);
             }
 
+            _dataSynchronizer.DataChanged += OnDataChanged;
+
             _logger = options.LoggerFactory.CreateLogger<FbClient>();
 
             // starts client
@@ -159,6 +164,8 @@ namespace FeatBit.Sdk.Server
 
             _dataSynchronizer = synchronizer;
             _eventProcessor = eventProcessor;
+
+            _dataSynchronizer.DataChanged += OnDataChanged;
 
             _logger = options.LoggerFactory.CreateLogger<FbClient>();
 
@@ -276,9 +283,43 @@ namespace FeatBit.Sdk.Server
         public async Task CloseAsync()
         {
             _logger.LogInformation("Closing FbClient...");
+            _dataSynchronizer.DataChanged -= OnDataChanged;
+
             await _dataSynchronizer.StopAsync();
             _eventProcessor.FlushAndClose(_options.FlushTimeout);
             _logger.LogInformation("FbClient successfully closed.");
+        }
+
+        private void OnDataChanged(object sender, DataChangeEventArgs eventArgs)
+        {
+            var handlers = DataChanged?
+                .GetInvocationList()
+                .Cast<EventHandler<DataChangeEventArgs>>()
+                .ToArray();
+
+            if (handlers == null)
+            {
+                return;
+            }
+
+            foreach (var handler in handlers)
+            {
+                NotifyDataChanged(handler, eventArgs);
+            }
+        }
+
+        private void NotifyDataChanged(
+            EventHandler<DataChangeEventArgs> handler,
+            DataChangeEventArgs eventArgs)
+        {
+            try
+            {
+                handler(this, eventArgs);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(exception, "Exception occurred in a data change event handler.");
+            }
         }
 
         private EvalDetail<TValue> EvaluateCore<TValue>(

@@ -102,7 +102,19 @@ public class TestStartup : StartupBase
                 if (messageType == "data-sync")
                 {
                     var timestamp = root.GetProperty("data").GetProperty("timestamp").GetInt64();
-                    var response = timestamp == 0 ? TestData.FullDataSet : TestData.PatchDataSet;
+                    if (token == "delayed-full")
+                    {
+                        await Task.Delay(100);
+                    }
+
+                    var response = token switch
+                    {
+                        "empty-full" => TestData.EmptyFullDataSet,
+                        "delayed-full" => TestData.FullDataSet,
+                        _ when timestamp == 0 => TestData.FullDataSet,
+                        "segment-patch" => TestData.SegmentPatchDataSet,
+                        _ => TestData.PatchDataSet
+                    };
 
                     await webSocket.SendAsync(response, WebSocketMessageType.Text, true, CancellationToken.None);
 
